@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>RemoteHub</AssemblyName>
+    <RootNamespace>RemoteHub</RootNamespace>
+    <StartupObject>RemoteHub.Program</StartupObject>
+    <LangVersion>5</LangVersion>
+    <ApplicationIcon>RemoteHub.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Platforms>AnyCPU;x86</Platforms>
+    <DebugType>none</DebugType>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- 未使用到的重命名参数不视为问题 -->
+    <NoWarn>$(NoWarn);CS0169;CS0414;CS0649;CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Security" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="UserGuide.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="app.manifest" />
+    <None Include="RemoteHub.ico" />
+  </ItemGroup>
+
+</Project>

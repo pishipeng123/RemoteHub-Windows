@@ -1,0 +1,42 @@
+# ---------- 编译产物 ----------
+RemoteHub.exe
+*.exe
+*.dll
+*.pdb
+*.ilk
+obj/
+bin/
+dist/
+preview/
+*.log
+
+# ---------- 运行时数据（绝不入库）----------
+# 台账里含 DPAPI 密文与主机地址，绿色版目录下也可能有
+portable.flag
+*.flag
+Data/
+connections.xml
+history.xml
+ui.ini
+vault.ini
+*.tmp
+
+# ---------- 本地截图 ----------
+# 只保留 docs/ 目录里整理好的示意图
+*.png
+!docs/*.png
+
+# ---------- IDE / 编辑器 ----------
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# ---------- 操作系统 ----------
+Thumbs.db
+desktop.ini
+.DS_Store
+$RECYCLE.BIN/
