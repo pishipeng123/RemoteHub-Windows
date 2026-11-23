@@ -10,10 +10,20 @@
 ![.NET](https://img.shields.io/badge/.NET-Framework%204.x-512BD4.svg)
 ![Windows](https://img.shields.io/badge/Windows-x64%20%2F%20x86-0078D4.svg)
 ![Build](https://github.com/pishipeng123/RemoteHub-Windows/actions/workflows/build.yml/badge.svg)
+[![Release](https://img.shields.io/github/v/release/pishipeng123/RemoteHub-Windows?label=下载)](https://github.com/pishipeng123/RemoteHub-Windows/releases/latest)
 
 </div>
 
 ---
+
+## 直接下载
+
+| 包 | 大小 | 说明 |
+| --- | --- | --- |
+| [**RemoteHub-1.4.0-Setup.exe**](https://github.com/pishipeng123/RemoteHub-Windows/releases/download/v1.4.0/RemoteHub-1.4.0-Setup.exe) | 2.0 MB | 安装版：开始菜单、桌面快捷方式、可选开机自启、「应用和功能」中可卸载 |
+| [**RemoteHub-1.4.0-Portable.zip**](https://github.com/pishipeng123/RemoteHub-Windows/releases/download/v1.4.0/RemoteHub-1.4.0-Portable.zip) | 95 KB | 绿色版：解压即用，不写注册表、不装服务，整个目录可拷到 U 盘 |
+
+需要其他版本见 [Releases 页面](https://github.com/pishipeng123/RemoteHub-Windows/releases)。
 
 ## 这是什么
 
@@ -104,7 +114,7 @@ RemoteHub 走第三条路：**直接用 Windows 自带的 RDP ActiveX 控件（`
 
 ### 方式一：直接下载成品
 
-在仓库的 [Releases](https://github.com/pishipeng123/RemoteHub-Windows/releases) 页面下载：
+在仓库的 [Releases](https://github.com/pishipeng123/RemoteHub-Windows/releases) 页面下载，或直接用上方的直链。
 
 | 包 | 说明 |
 | --- | --- |
