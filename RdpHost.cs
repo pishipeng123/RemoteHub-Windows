@@ -1045,12 +1045,41 @@ namespace RemoteHub
             sb.AppendLine("目标: 127.0.0.1:3389 (本机，仅验证 Connect 调用，不建立持久会话)");
             sb.AppendLine();
 
+            // 看门狗：本自检会真正驱动 RDP 控件。一旦系统弹出模态窗口（许可协议、
+            // 证书警告、连接失败提示等），窗体消息循环就可能被卡住，--smoke 会永远
+            // 退不出去。到达硬性时限后直接结束进程，保证这个命令永远不会挂死。
+            // 用全限定名，避免引入 System.Threading 后与 WinForms 的 Timer 重名。
+            System.Threading.Thread watchdog = new System.Threading.Thread(delegate ()
+            {
+                System.Threading.Thread.Sleep(25000);
+                try { Write(sb); } catch { }
+                Environment.Exit(3);
+            });
+            watchdog.IsBackground = true;
+            watchdog.Start();
+
+            // 先确认系统里确实注册了 RDP ActiveX 控件。没有它就不要去创建窗体——
+            // 控件缺失时创建过程本身就可能弹窗。缺控件属于环境限制，不是程序故障。
+            string progId = RdpHost.PickProgId();
+            if (string.IsNullOrEmpty(progId))
+            {
+                sb.AppendLine("结果         : 跳过——未找到系统自带的 RDP ActiveX 控件。");
+                sb.AppendLine("             请在「Windows 可选功能」中启用「远程桌面客户端」后重试。");
+                Write(sb);
+                return;
+            }
+            sb.AppendLine("RDP 控件     : " + progId);
+            sb.AppendLine();
+
             Form f = new Form();
             f.Text = "RemoteHub 连接链路自检";
             f.Width = 420;
             f.Height = 320;
-            f.StartPosition = FormStartPosition.CenterScreen;
             f.ShowInTaskbar = false;
+            // 不在屏幕中央显示：无人值守环境（CI、计划任务）下弹到前台容易被误认为卡死。
+            f.StartPosition = FormStartPosition.Manual;
+            f.Location = new Point(-32000, -32000);
+            f.Opacity = 0;
 
             RdpHost host = new RdpHost();
             f.Controls.Add(host);
