@@ -15,15 +15,53 @@ namespace RemoteHub
     internal sealed class LanScanDialog : Form
     {
         private readonly TextBox _range = new TextBox();
-        private readonly NumericUpDown _port = new NumericUpDown();
-        private readonly NumericUpDown _timeout = new NumericUpDown();
+        private readonly RhNumber _port = new RhNumber();
+        private readonly RhNumber _timeout = new RhNumber();
         private readonly ListView _list = new ListView();
+        private readonly ScanHeader _header = new ScanHeader();
         private readonly ScanBar _bar = new ScanBar();
         private readonly Label _stat = new Label();
         private readonly RhButton _start = new RhButton();
         private CancellationTokenSource _cts;
         private bool _running;
         private int _done, _total, _found;
+
+        // Column geometry of the result grid. The header strip and the rows share these
+        // offsets so the two always line up.
+        private const int XCheck = 6;
+        private const int XIp = 28;
+        private const int XPort = 196;
+        private const int XStatus = 276;
+        private const int XElapsedRight = 512;
+
+        /// <summary>
+        /// Column titles for the result grid. The stock header strip paints a grey band
+        /// with vertical separators that belongs to no theme in particular.
+        /// </summary>
+        private sealed class ScanHeader : Control
+        {
+            public ScanHeader()
+            {
+                SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                         ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
+                BackColor = Color.Transparent;
+                Height = 22;
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                Graphics g = e.Graphics;
+                g.Clear(Ui.ResolveBackColor(this));
+                Font f = Ui.F(8.5F, FontStyle.Bold);
+                const TextFormatFlags V = TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix;
+                TextRenderer.DrawText(g, "主机地址", f, new Rectangle(XIp, 0, 120, Height), Ui.TextMuted, TextFormatFlags.Left | V);
+                TextRenderer.DrawText(g, "端口", f, new Rectangle(XPort, 0, 60, Height), Ui.TextMuted, TextFormatFlags.Left | V);
+                TextRenderer.DrawText(g, "状态", f, new Rectangle(XStatus, 0, 140, Height), Ui.TextMuted, TextFormatFlags.Left | V);
+                TextRenderer.DrawText(g, "耗时", f, new Rectangle(XElapsedRight - 60, 0, 60, Height), Ui.TextMuted, TextFormatFlags.Right | V);
+                using (Pen p = new Pen(Ui.Border))
+                    g.DrawLine(p, 0, Height - 1, Width, Height - 1);
+            }
+        }
 
         /// <summary>
         /// Thin self-drawn progress line. The stock WinForms bar renders as a chunky
@@ -57,6 +95,18 @@ namespace RemoteHub
         }
 
         public List<ConnectionInfo> Selected { get; private set; }
+
+        /// <summary>
+        /// One probe result. The result grid is owner-drawn, so the row carries its own
+        /// check state instead of relying on the stock list-view check box.
+        /// </summary>
+        private sealed class ScanRow
+        {
+            public string Ip = "";
+            public int Port;
+            public int Milliseconds;
+            public bool Checked;
+        }
 
         public LanScanDialog()
         {
@@ -92,19 +142,23 @@ namespace RemoteHub
 
             // ---- results card ----
             Panel res = Dlg.Card(16, 212, 588, 254, "扫描结果", UiIcon.Monitor);
-            _list.SetBounds(16, 36, 556, 174);
+            _header.SetBounds(16, 34, 556, 22);
+            res.Controls.Add(_header);
+            _list.SetBounds(16, 58, 556, 152);
             _list.View = View.Details;
-            _list.CheckBoxes = true;
             _list.FullRowSelect = true;
             _list.GridLines = false;
+            _list.HideSelection = false;
+            _list.BorderStyle = BorderStyle.None;
             _list.BackColor = Ui.Field;
             _list.ForeColor = Ui.Text;
             _list.Font = Ui.NewF(9F);
-            _list.BorderStyle = BorderStyle.None;
-            _list.Columns.Add("主机地址", 190);
-            _list.Columns.Add("端口", 80);
-            _list.Columns.Add("状态", 160);
-            _list.Columns.Add("耗时", 90);
+            _list.HeaderStyle = ColumnHeaderStyle.None;
+            _list.OwnerDraw = true;
+            _list.Tag = "field";
+            _list.Columns.Add("主机地址", 520);
+            _list.DrawItem += List_DrawItem;
+            _list.MouseDown += List_MouseDown;
             res.Controls.Add(_list);
 
             _bar.SetBounds(16, 220, 420, 4);
@@ -139,8 +193,18 @@ namespace RemoteHub
             all.Click += delegate
             {
                 bool turnOn = false;
-                foreach (ListViewItem it in _list.Items) if (!it.Checked) { turnOn = true; break; }
-                foreach (ListViewItem it in _list.Items) it.Checked = turnOn;
+                foreach (ListViewItem it in _list.Items)
+                {
+                    ScanRow r0 = it.Tag as ScanRow;
+                    if (r0 != null && !r0.Checked) { turnOn = true; break; }
+                }
+                foreach (ListViewItem it in _list.Items)
+                {
+                    ScanRow r0 = it.Tag as ScanRow;
+                    if (r0 == null) continue;
+                    r0.Checked = turnOn;
+                }
+                _list.Invalidate();
             };
             footer.Controls.Add(all);
             Controls.Add(footer);
@@ -196,12 +260,16 @@ namespace RemoteHub
                                 if (IsDisposed) return;
                                 if (open)
                                 {
+                                    ScanRow row = new ScanRow();
+                                    row.Ip = ip;
+                                    row.Port = port;
+                                    row.Milliseconds = (int)sw.ElapsedMilliseconds;
+                                    row.Checked = true;
                                     ListViewItem it = new ListViewItem(ip);
                                     it.SubItems.Add(port.ToString());
                                     it.SubItems.Add("RDP 端口开放");
-                                    it.SubItems.Add(sw.ElapsedMilliseconds + " ms");
-                                    it.Checked = true;
-                                    it.Tag = ip;
+                                    it.SubItems.Add(row.Milliseconds + " ms");
+                                    it.Tag = row;
                                     _list.Items.Add(it);
                                 }
                                 _bar.Percent = Math.Min(100, d * 100 / Math.Max(1, _total));
@@ -249,12 +317,16 @@ namespace RemoteHub
             int[] ms = { 12, 18, 9, 24 };
             for (int i = 0; i < ips.Length; i++)
             {
+                ScanRow row = new ScanRow();
+                row.Ip = ips[i];
+                row.Port = 3389;
+                row.Milliseconds = ms[i];
+                row.Checked = true;
                 ListViewItem it = new ListViewItem(ips[i]);
                 it.SubItems.Add("3389");
                 it.SubItems.Add("RDP 端口开放");
                 it.SubItems.Add(ms[i] + " ms");
-                it.Checked = true;
-                it.Tag = ips[i];
+                it.Tag = row;
                 _list.Items.Add(it);
             }
             _bar.Percent = 100;
@@ -268,10 +340,11 @@ namespace RemoteHub
             int port = (int)_port.Value;
             foreach (ListViewItem it in _list.Items)
             {
-                if (!it.Checked) continue;
+                ScanRow row = it.Tag as ScanRow;
+                if (row == null || !row.Checked) continue;
                 ConnectionInfo c = new ConnectionInfo();
-                c.Host = it.Tag as string;
-                c.Name = c.Host;
+                c.Host = row.Ip;
+                c.Name = row.Ip;
                 c.Port = port;
                 c.Group = "扫描发现";
                 c.ShareDrives = true;
@@ -287,6 +360,55 @@ namespace RemoteHub
             if (_running) StopScan();
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        /// <summary>Draws one result row: check box, address, port, state and elapsed time.</summary>
+        private void List_DrawItem(object sender, DrawListViewItemEventArgs e)
+        {
+            if (e.Item == null) return;
+            ScanRow row = e.Item.Tag as ScanRow;
+            if (row == null) return;
+
+            Graphics g = e.Graphics;
+            bool sel = (e.State & ListViewItemStates.Selected) != 0;
+            using (SolidBrush b = new SolidBrush(sel ? Ui.AccentSoft : Ui.Field))
+                g.FillRectangle(b, e.Bounds);
+
+            int left = e.Bounds.Left;
+            int top = e.Bounds.Top;
+            int h = e.Bounds.Height;
+
+            Rectangle box = new Rectangle(left + XCheck, top + (h - 14) / 2, 14, 14);
+            Ui.DrawCheckGlyph(g, box, row.Checked, true, false);
+
+            const TextFormatFlags V = TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                                      TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine;
+            TextRenderer.DrawText(g, row.Ip, Ui.F(9F),
+                new Rectangle(left + XIp, top, 160, h), sel ? Ui.Text : Ui.Text, TextFormatFlags.Left | V);
+            TextRenderer.DrawText(g, row.Port.ToString(), Ui.F(9F),
+                new Rectangle(left + XPort, top, 70, h), Ui.TextMuted, TextFormatFlags.Left | V);
+            TextRenderer.DrawText(g, "RDP 端口开放", Ui.F(9F),
+                new Rectangle(left + XStatus, top, 160, h), Ui.Accent, TextFormatFlags.Left | V);
+            TextRenderer.DrawText(g, row.Milliseconds + " ms", Ui.F(9F),
+                new Rectangle(left + XElapsedRight - 70, top, 70, h), Ui.TextMuted, TextFormatFlags.Right | V);
+
+            using (Pen p = new Pen(Ui.BorderSoft))
+                g.DrawLine(p, left, top + h - 1, e.Bounds.Right, top + h - 1);
+        }
+
+        /// <summary>Toggles the row check box when the glyph itself is clicked.</summary>
+        private void List_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left) return;
+            ListViewHitTestInfo hit = _list.HitTest(e.Location);
+            if (hit == null || hit.Item == null) return;
+            ScanRow row = hit.Item.Tag as ScanRow;
+            if (row == null) return;
+            Rectangle bounds = hit.Item.Bounds;
+            Rectangle box = new Rectangle(bounds.Left + XCheck, bounds.Top + (bounds.Height - 14) / 2, 14, 14);
+            if (!box.Contains(e.Location)) return;
+            row.Checked = !row.Checked;
+            _list.Invalidate();
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

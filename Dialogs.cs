@@ -97,7 +97,7 @@ namespace RemoteHub
         /// <summary>A rounded border wrapper that hosts a borderless editor control.</summary>
         public static Panel Wrap(Control inner, int height)
         {
-            bool selfDrawn = inner is RhSelect;
+            bool selfDrawn = inner is RhSelect || inner is RhNumber;
             Panel box = new Panel
             {
                 Tag = selfDrawn ? "plain" : "fieldwrap",
@@ -134,8 +134,7 @@ namespace RemoteHub
                 inner.Dock = DockStyle.Fill;
                 inner.BackColor = Color.Transparent;
                 inner.Tag = "rhselect";
-            }
-            box.Controls.Add(inner);
+            }            box.Controls.Add(inner);
             return box;
         }
 
@@ -191,21 +190,21 @@ namespace RemoteHub
         private readonly TextBox _name = new TextBox();
         private readonly RhSelect _group = new RhSelect(true);
         private readonly TextBox _host = new TextBox();
-        private readonly NumericUpDown _port = new NumericUpDown();
+        private readonly RhNumber _port = new RhNumber();
         private readonly TextBox _user = new TextBox();
         private readonly TextBox _password = new TextBox();
-        private readonly CheckBox _showPwd = new CheckBox();
+        private readonly RhCheck _showPwd = new RhCheck();
         private readonly TextBox _domain = new TextBox();
         private readonly TextBox _notes = new TextBox();
         private readonly RhSelect _depth = new RhSelect();
         private readonly RhSelect _resolution = new RhSelect();
         private readonly RhSelect _audio = new RhSelect();
-        private readonly NumericUpDown _width = new NumericUpDown();
-        private readonly NumericUpDown _height = new NumericUpDown();
-        private readonly CheckBox _smart = new CheckBox();
-        private readonly CheckBox _compat = new CheckBox();
-        private readonly CheckBox _shareDrives = new CheckBox();
-        private readonly CheckBox _shareClipboard = new CheckBox();
+        private readonly RhNumber _width = new RhNumber();
+        private readonly RhNumber _height = new RhNumber();
+        private readonly RhCheck _smart = new RhCheck();
+        private readonly RhCheck _compat = new RhCheck();
+        private readonly RhCheck _shareDrives = new RhCheck();
+        private readonly RhCheck _shareClipboard = new RhCheck();
         private readonly RhButton _ok;
         private readonly RhButton _cancel;
 

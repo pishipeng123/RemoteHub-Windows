@@ -280,16 +280,12 @@ namespace RemoteHub
             SessionRecord r = _list.Items[e.Index] as SessionRecord;
             if (r != null)
             {
-                using (SolidBrush t = new SolidBrush(sel ? Ui.Accent : Ui.Text))
-                using (StringFormat sf = new StringFormat())
-                {
-                    sf.LineAlignment = StringAlignment.Center;
-                    sf.Trimming = StringTrimming.EllipsisCharacter;
-                    sf.FormatFlags = StringFormatFlags.NoWrap;
-                    g.DrawString(r.RowText, Ui.F(9F), t,
-                        new RectangleF(e.Bounds.Left + 8, e.Bounds.Top,
-                            Math.Max(10, e.Bounds.Width - 16), e.Bounds.Height), sf);
-                }
+                TextRenderer.DrawText(g, r.RowText, Ui.F(9F),
+                    new Rectangle(e.Bounds.Left + 8, e.Bounds.Top,
+                        Math.Max(10, e.Bounds.Width - 16), e.Bounds.Height),
+                    sel ? Ui.Accent : Ui.Text,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
             }
             using (Pen p = new Pen(Ui.BorderSoft))
                 g.DrawLine(p, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);

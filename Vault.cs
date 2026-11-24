@@ -333,7 +333,7 @@ namespace RemoteHub
         private readonly VaultConfig _cfg;
         private readonly TextBox _p1 = new TextBox();
         private readonly TextBox _p2 = new TextBox();
-        private readonly NumericUpDown _idle = new NumericUpDown();
+        private readonly RhNumber _idle = new RhNumber();
         public bool Removed;
 
         public VaultSettingsDialog(VaultConfig cfg)

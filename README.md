@@ -20,8 +20,8 @@
 
 | 包 | 大小 | 说明 |
 | --- | --- | --- |
-| [**RemoteHub-1.4.1-Setup.exe**](https://github.com/pishipeng123/RemoteHub-Windows/releases/download/v1.4.1/RemoteHub-1.4.1-Setup.exe) | 2.0 MB | 安装版：开始菜单、桌面快捷方式、可选开机自启、「应用和功能」中可卸载 |
-| [**RemoteHub-1.4.1-Portable.zip**](https://github.com/pishipeng123/RemoteHub-Windows/releases/download/v1.4.1/RemoteHub-1.4.1-Portable.zip) | 95 KB | 绿色版：解压即用，不写注册表、不装服务，整个目录可拷到 U 盘 |
+| [**RemoteHub-1.4.2-Setup.exe**](https://github.com/pishipeng123/RemoteHub-Windows/releases/download/v1.4.2/RemoteHub-1.4.2-Setup.exe) | 2.0 MB | 安装版：开始菜单、桌面快捷方式、可选开机自启、「应用和功能」中可卸载 |
+| [**RemoteHub-1.4.2-Portable.zip**](https://github.com/pishipeng123/RemoteHub-Windows/releases/download/v1.4.2/RemoteHub-1.4.2-Portable.zip) | 95 KB | 绿色版：解压即用，不写注册表、不装服务，整个目录可拷到 U 盘 |
 
 需要其他版本见 [Releases 页面](https://github.com/pishipeng123/RemoteHub-Windows/releases)。
 
@@ -118,8 +118,8 @@ RemoteHub 走第三条路：**直接用 Windows 自带的 RDP ActiveX 控件（`
 
 | 包 | 说明 |
 | --- | --- |
-| `RemoteHub-1.4.1-Setup.exe` | 安装版：开始菜单、桌面快捷方式、可选开机自启、「应用和功能」中可卸载 |
-| `RemoteHub-1.4.1-Portable.zip` | 绿色版：解压即用，不写注册表、不装服务，整个目录可拷到 U 盘 |
+| `RemoteHub-1.4.2-Setup.exe` | 安装版：开始菜单、桌面快捷方式、可选开机自启、「应用和功能」中可卸载 |
+| `RemoteHub-1.4.2-Portable.zip` | 绿色版：解压即用，不写注册表、不装服务，整个目录可拷到 U 盘 |
 
 ### 方式二：从源码编译（不需要 Visual Studio）
 
@@ -147,7 +147,7 @@ build.bat anycpu
 build-release.bat
 ```
 
-产物输出到 `dist/`：安装包 `RemoteHub-1.4.1-Setup.exe` 与绿色版 `RemoteHub-1.4.1-Portable.zip`。
+产物输出到 `dist/`：安装包 `RemoteHub-1.4.2-Setup.exe` 与绿色版 `RemoteHub-1.4.2-Portable.zip`。
 
 ### 方式三：用 Visual Studio 打开
 
@@ -247,7 +247,7 @@ RemoteHub-Windows/
 
 ## 版本历史
 
-见 [`CHANGELOG.md`](CHANGELOG.md)。当前版本 **1.4.1**。
+见 [`CHANGELOG.md`](CHANGELOG.md)。当前版本 **1.4.2**。
 
 ## 参与贡献
 

@@ -105,9 +105,11 @@ namespace RemoteHub
                 bool sel = (e.State & DrawItemState.Selected) != 0;
                 using (SolidBrush b = new SolidBrush(sel ? Ui.CardAlt : Ui.Field))
                     e.Graphics.FillRectangle(b, e.Bounds);
-                using (SolidBrush t = new SolidBrush(sel ? Ui.Accent : Ui.Text))
-                    e.Graphics.DrawString(_list.Items[e.Index].ToString(), Ui.F(9F), t,
-                        new PointF(e.Bounds.Left + 6, e.Bounds.Top + 3));
+                TextRenderer.DrawText(e.Graphics, _list.Items[e.Index].ToString(), Ui.F(9F),
+                    new Rectangle(e.Bounds.Left + 6, e.Bounds.Top, e.Bounds.Width - 10, e.Bounds.Height),
+                    sel ? Ui.Accent : Ui.Text,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
             };
 
             RhButton addFiles = Dlg.Button("添加文件", UiIcon.Plus, RhButtonKind.Chip, 96);

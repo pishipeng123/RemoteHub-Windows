@@ -1,12 +1,12 @@
 ﻿; ============================================================
-;  RemoteHub 1.4.1 - Inno Setup 7 installer script
+;  RemoteHub 1.4.2 - Inno Setup 7 installer script
 ;  Compile:  ISCC.exe RemoteHub.iss
-;  Output :  dist\RemoteHub-1.4.1-Setup.exe
+;  Output :  dist\RemoteHub-1.4.2-Setup.exe
 ;  NOTE   :  this file must be UTF-8 with BOM (Inno 6.3+ / 7).
 ; ============================================================
 
 #define AppName "RemoteHub"
-#define AppVersion "1.4.1"
+#define AppVersion "1.4.2"
 #define AppExe "RemoteHub.exe"
 
 [Setup]
@@ -19,9 +19,9 @@ DefaultDirName={autopf}\RemoteHub
 DefaultGroupName=RemoteHub
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExe}
-UninstallDisplayName=RemoteHub 1.4.1
+UninstallDisplayName=RemoteHub 1.4.2
 OutputDir=dist
-OutputBaseFilename=RemoteHub-1.4.1-Setup
+OutputBaseFilename=RemoteHub-1.4.2-Setup
 SetupIconFile=RemoteHub.ico
 Compression=lzma2/max
 SolidCompression=yes
@@ -32,11 +32,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
 ShowLanguageDialog=no
 UsedUserAreasWarning=no
-VersionInfoVersion=1.4.1.0
+VersionInfoVersion=1.4.2.0
 VersionInfoCompany=RemoteHub
-VersionInfoDescription=RemoteHub 1.4.1 安装程序
+VersionInfoDescription=RemoteHub 1.4.2 安装程序
 VersionInfoProductName=RemoteHub
-VersionInfoProductVersion=1.4.1.0
+VersionInfoProductVersion=1.4.2.0
 VersionInfoCopyright=Copyright (C) 2026 RemoteHub
 
 [Languages]

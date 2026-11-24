@@ -543,6 +543,44 @@ namespace RemoteHub
             using (GraphicsPath p = RoundPath(r, radius)) g.DrawPath(pen, p);
         }
 
+        /// <summary>
+        /// The one check-box glyph used everywhere in the app. Sharing it keeps the
+        /// dialog controls and the dialog lists on the same visual language.
+        /// </summary>
+        public static void DrawCheckGlyph(Graphics g, Rectangle box, bool on, bool enabled, bool hot)
+        {
+            Color fill, edge;
+            if (on)
+            {
+                fill = enabled ? Accent : BorderSoft;
+                edge = fill;
+            }
+            else
+            {
+                fill = hot ? AccentSoft : Field;
+                edge = !enabled ? BorderSoft : (hot ? Accent : Border);
+            }
+            using (SolidBrush b = new SolidBrush(fill)) FillRound(g, b, box, 3);
+            if (!on)
+            {
+                using (Pen p = new Pen(edge, 1f)) DrawRound(g, p, box, 3);
+                return;
+            }
+            Color tick = enabled ? Color.White : TextMuted;
+            using (Pen p = new Pen(tick, 1.7f))
+            {
+                p.StartCap = LineCap.Round;
+                p.EndCap = LineCap.Round;
+                p.LineJoin = LineJoin.Round;
+                g.DrawLines(p, new PointF[]
+                {
+                    new PointF(box.Left + 3.4f, box.Top + 7.4f),
+                    new PointF(box.Left + 6.2f, box.Top + 10.2f),
+                    new PointF(box.Left + 10.8f, box.Top + 4.6f)
+                });
+            }
+        }
+
         /// <summary>Path with only the top two corners rounded (used by the session tabs).</summary>
         public static GraphicsPath RoundPathTop(Rectangle r, int radius)
         {
@@ -612,31 +650,35 @@ namespace RemoteHub
 
         public static void DrawCentered(Graphics g, string text, Font font, Color color, Rectangle area)
         {
-            using (SolidBrush b = new SolidBrush(color))
-            using (StringFormat sf = new StringFormat())
-            {
-                sf.Alignment = StringAlignment.Center;
-                sf.LineAlignment = StringAlignment.Center;
-                sf.Trimming = StringTrimming.EllipsisCharacter;
-                sf.FormatFlags = StringFormatFlags.NoWrap;
-                g.DrawString(text, font, b, area, sf);
-            }
+            TextRenderer.DrawText(g, text, font, area, color,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
         }
 
         // ---- vector icons ------------------------------------------------
         public static void DrawIcon(Graphics g, UiIcon icon, Rectangle bounds, Color color)
         {
-            DrawIcon(g, icon, bounds, color, 1.9f);
+            DrawIcon(g, icon, bounds, color, 1.35f);
         }
 
+        /// <summary>
+        /// Draws one vector glyph. The glyphs are authored on a 24x24 grid, so the pen width
+        /// has to be divided by the scale factor - otherwise a 16px icon would render its
+        /// strokes at 1.9 * 16/24 = 1.27 device pixels and look washed out and grey.
+        /// <paramref name="weight"/> is therefore the width in *device* pixels.
+        /// </summary>
         public static void DrawIcon(Graphics g, UiIcon icon, Rectangle bounds, Color color, float weight)
         {
             if (icon == UiIcon.None || bounds.Width <= 0 || bounds.Height <= 0) return;
             GraphicsState state = g.Save();
             g.SmoothingMode = SmoothingMode.AntiAlias;
+            // Keep the glyph on the pixel grid: without this, half-covered pixels along a
+            // vertical stroke get smeared over two columns and the icon reads as blurry.
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             g.TranslateTransform(bounds.Left, bounds.Top);
+            float scale = Math.Min(bounds.Width, bounds.Height) / 24f;
             g.ScaleTransform(bounds.Width / 24f, bounds.Height / 24f);
-            using (Pen p = new Pen(color, weight))
+            using (Pen p = new Pen(color, weight / scale))
             using (SolidBrush b = new SolidBrush(color))
             {
                 p.StartCap = LineCap.Round;
@@ -717,12 +759,19 @@ namespace RemoteHub
                         g.DrawLine(p, 12, 17, 12, 21);
                         break;
                     case UiIcon.Moon:
-                        using (GraphicsPath gp = new GraphicsPath())
+                        // Crescent: a disc with a second disc cut out of it. The inner
+                        // ellipse is traced in the opposite direction so the Winding
+                        // fill mode cancels it out; two overlapping arcs produced a
+                        // broken blob at 16px.
+                        using (GraphicsPath moon = new GraphicsPath())
                         {
-                            gp.AddArc(2.5f, 2.5f, 19, 19, 48, 265);
-                            gp.AddArc(9, 2.5f, 19, 19, 145, 250);
-                            gp.CloseFigure();
-                            g.FillPath(b, gp);
+                            moon.FillMode = FillMode.Winding;
+                            moon.AddEllipse(3.5f, 3.5f, 17, 17);
+                            // Traced counter-clockwise so it subtracts from the outer disc.
+                            // Offset up and to the right, which leaves a slim crescent.
+                            moon.AddArc(11.5f, 0.5f, 17, 17, 0, -180);
+                            moon.AddArc(11.5f, 0.5f, 17, 17, 180, -180);
+                            g.FillPath(b, moon);
                         }
                         break;
                     case UiIcon.Sun:
@@ -758,8 +807,13 @@ namespace RemoteHub
                         g.DrawLines(p, new PointF[] { new PointF(16, 5), new PointF(4, 5), new PointF(4, 17) });
                         break;
                     case UiIcon.Help:
+                        // The question mark is drawn as strokes rather than with a font:
+                        // a scaled DrawString produced a double-exposed, colour-fringed
+                        // glyph at 16px.
                         g.DrawEllipse(p, 3.5f, 3.5f, 17, 17);
-                        g.DrawString("?", F(11F, FontStyle.Bold), b, new PointF(7.2f, 5.4f));
+                        g.DrawArc(p, new RectangleF(7.5f, 7, 9, 8), 200, 260);
+                        g.DrawLine(p, 12, 14.4f, 12, 16.4f);
+                        g.FillEllipse(b, 10.4f, 18.2f, 3.2f, 3.2f);
                         break;
                     case UiIcon.Gear:
                         g.DrawEllipse(p, 7.5f, 7.5f, 9, 9);
@@ -806,22 +860,49 @@ namespace RemoteHub
                         g.FillEllipse(b, 9.2f, 14.2f, 3.6f, 3.6f);
                         break;
                     case UiIcon.Logo:
-                        // Blue rounded tile with a monitor + connection arrow inside.
+                        // Full mark: coloured tile plus the glyph. Callers that already
+                        // paint their own tile must use DrawLogoMark instead, otherwise
+                        // the two tiles stack up and the mark reads as a blurry blob.
                         using (SolidBrush tile = new SolidBrush(Accent))
                             FillRound(g, tile, new Rectangle(0, 0, 24, 24), 3);
-                        using (Pen white = new Pen(Color.White, 1.8f))
-                        {
-                            white.LineJoin = LineJoin.Round;
-                            g.DrawRectangle(white, 4.5f, 6, 15, 10);
-                            g.DrawLine(white, 9, 19, 15, 19);
-                            g.DrawLine(white, 12, 16, 12, 19);
-                        }
-                        using (SolidBrush wb = new SolidBrush(Color.White))
-                            g.FillPolygon(wb, new PointF[] { new PointF(10, 9), new PointF(15, 11), new PointF(10, 13) });
+                        DrawLogoGlyph(g, Color.White, 1.8f / scale);
                         break;
                 }
             }
             g.Restore(state);
+        }
+
+        /// <summary>
+        /// The logo glyph on its own, without the surrounding tile: a monitor with a
+        /// connection arrow inside. Used where the tile is painted by the caller.
+        /// </summary>
+        public static void DrawLogoMark(Graphics g, Rectangle bounds, Color color)
+        {
+            if (bounds.Width <= 0 || bounds.Height <= 0) return;
+            GraphicsState state = g.Save();
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            g.TranslateTransform(bounds.Left, bounds.Top);
+            float scale = Math.Min(bounds.Width, bounds.Height) / 24f;
+            g.ScaleTransform(bounds.Width / 24f, bounds.Height / 24f);
+            DrawLogoGlyph(g, color, 1.8f / scale);
+            g.Restore(state);
+        }
+
+        private static void DrawLogoGlyph(Graphics g, Color color, float width)
+        {
+            // A monitor outline with a small connection arrow. Kept to three strokes so it
+            // stays legible at 14px - more detail than that turns into a smudge.
+            using (Pen pen = new Pen(color, width))
+            {
+                pen.LineJoin = LineJoin.Round;
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                g.DrawRectangle(pen, 4, 6.5f, 16, 11);
+                g.DrawLine(pen, 9.5f, 20, 14.5f, 20);
+            }
+            using (SolidBrush brush = new SolidBrush(color))
+                g.FillPolygon(brush, new PointF[] { new PointF(9, 9.5f), new PointF(15, 12), new PointF(9, 14.5f) });
         }
 
         public static Bitmap IconBitmap(UiIcon icon, int size, Color color)
@@ -922,10 +1003,8 @@ namespace RemoteHub
             c.Tag = "field";
         }
 
-        public static void StyleCheck(CheckBox c)
+        public static void StyleCheck(RhCheck c)
         {
-            c.FlatStyle = FlatStyle.Flat;
-            c.ForeColor = Text;
             c.BackColor = Color.Transparent;
             c.Font = NewF(9F);
             c.Tag = "check";
@@ -965,6 +1044,8 @@ namespace RemoteHub
         {
             if (c is RhButton) { c.Invalidate(); return; }
             if (c is RhSelect) { c.Invalidate(); return; }
+            if (c is RhNumber) { c.Invalidate(); return; }
+            if (c is RhCheck) { c.Invalidate(); return; }
             string tag = c.Tag as string;
             if (tag != null && tag.StartsWith("rhbtn|")) { c.Invalidate(); return; }
             if (tag == "rhselect")
@@ -1125,15 +1206,10 @@ namespace RemoteHub
             {
                 // Draw the label exactly after the icon. Centring it inside the *remaining*
                 // width (the old approach) pushed text away from the icon on wide buttons.
-                Rectangle textRect = new Rectangle(x, 0, textW + 4, Height);
-                using (SolidBrush tbrush = new SolidBrush(fg))
-                using (StringFormat sf = new StringFormat())
-                {
-                    sf.LineAlignment = StringAlignment.Center;
-                    sf.Trimming = StringTrimming.EllipsisCharacter;
-                    sf.FormatFlags = StringFormatFlags.NoWrap;
-                    g.DrawString(Text, Font, tbrush, textRect, sf);
-                }
+                Rectangle textRect = new Rectangle(x - 1, 0, textW + 4, Height);
+                TextRenderer.DrawText(g, Text, Font, textRect, fg,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
             }
         }
     }
@@ -1295,15 +1371,10 @@ namespace RemoteHub
             if (_edit == null)
             {
                 string text = (_index >= 0 && _index < _items.Count) ? _items[_index] : "";
-                using (SolidBrush tb = new SolidBrush(Ui.Text))
-                using (StringFormat sf = new StringFormat())
-                {
-                    sf.LineAlignment = StringAlignment.Center;
-                    sf.Trimming = StringTrimming.EllipsisCharacter;
-                    sf.FormatFlags = StringFormatFlags.NoWrap;
-                    g.DrawString(text, Font, tb,
-                        new RectangleF(12, 0, Math.Max(10, Width - 38), Height), sf);
-                }
+                TextRenderer.DrawText(g, text, Font,
+                    new Rectangle(11, 0, Math.Max(10, Width - 36), Height), Ui.Text,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
             }
 
             int cx = Width - 19, cy = Height / 2;
@@ -1316,6 +1387,268 @@ namespace RemoteHub
                 {
                     new PointF(cx - 4, cy - 2), new PointF(cx, cy + 2), new PointF(cx + 4, cy - 2)
                 });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Self-drawn spin box. The stock NumericUpDown always stamps its own square
+    /// grey stepper in the corner, which clashes badly with the rounded input frame
+    /// around it - the clearest sign of a mixed, unpolished UI.
+    /// </summary>
+    internal sealed class RhNumber : Control
+    {
+        private int _value;
+        private int _minimum;
+        private int _maximum = 100;
+        private bool _hoverUp, _hoverDown;
+        private bool _pressUp, _pressDown;
+        private int _increment = 1;
+
+        public event EventHandler ValueChanged;
+
+        public RhNumber()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw |
+                     ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Default;
+            Font = Ui.NewF(9F);
+            Height = 28;
+            TabStop = true;
+        }
+
+        public int Minimum
+        {
+            get { return _minimum; }
+            set { _minimum = value; if (_value < value) _value = value; Invalidate(); }
+        }
+
+        public int Maximum
+        {
+            get { return _maximum; }
+            set { _maximum = value; if (_value > value) _value = value; Invalidate(); }
+        }
+
+        public int Value
+        {
+            get { return _value; }
+            set
+            {
+                int v = value;
+                if (v < _minimum) v = _minimum;
+                if (v > _maximum) v = _maximum;
+                if (v == _value) return;
+                _value = v;
+                Invalidate();
+                if (ValueChanged != null) ValueChanged(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>How much one step of the arrow keys / wheel changes the value.</summary>
+        public int Increment
+        {
+            get { return _increment < 1 ? 1 : _increment; }
+            set { _increment = value < 1 ? 1 : value; }
+        }
+
+        private Rectangle StepperRect
+        {
+            get { return new Rectangle(Width - 24, 0, 24, Height); }
+        }
+
+        private Rectangle UpRect
+        {
+            get { Rectangle s = StepperRect; return new Rectangle(s.Left, 0, s.Width, Height / 2); }
+        }
+
+        private Rectangle DownRect
+        {
+            get { Rectangle s = StepperRect; return new Rectangle(s.Left, Height / 2, s.Width, Height - Height / 2); }
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            _hoverUp = UpRect.Contains(e.Location);
+            _hoverDown = DownRect.Contains(e.Location);
+            Cursor = (_hoverUp || _hoverDown) ? Cursors.Hand : Cursors.Default;
+            Invalidate();
+            base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            _hoverUp = _hoverDown = false;
+            _pressUp = _pressDown = false;
+            Invalidate();
+            base.OnMouseLeave(e);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                if (UpRect.Contains(e.Location)) { _pressUp = true; Invalidate(); }
+                else if (DownRect.Contains(e.Location)) { _pressDown = true; Invalidate(); }
+            }
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            if (_pressUp && UpRect.Contains(e.Location)) Value = _value + Increment;
+            if (_pressDown && DownRect.Contains(e.Location)) Value = _value - Increment;
+            _pressUp = _pressDown = false;
+            Invalidate();
+            base.OnMouseUp(e);
+        }
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            Value = _value + (e.Delta > 0 ? Increment : -Increment);
+            base.OnMouseWheel(e);
+        }
+
+        protected override bool IsInputKey(Keys keyData)
+        {
+            if (keyData == Keys.Up) { Value = _value + Increment; return true; }
+            if (keyData == Keys.Down) { Value = _value - Increment; return true; }
+            return base.IsInputKey(keyData);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            g.Clear(Ui.ResolveBackColor(this));
+
+            bool on = Enabled;
+            Rectangle r = new Rectangle(0, 0, Width - 1, Height - 1);
+            using (SolidBrush b = new SolidBrush(on ? Ui.Field : Ui.CardAlt)) Ui.FillRound(g, b, r, Ui.Radius);
+            using (Pen p = new Pen(on ? Ui.Border : Ui.BorderSoft)) Ui.DrawRound(g, p, r, Ui.Radius);
+
+            TextRenderer.DrawText(g, _value.ToString(), Font,
+                new Rectangle(9, 0, Math.Max(10, Width - 34), Height), on ? Ui.Text : Ui.TextMuted,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                TextFormatFlags.SingleLine);
+
+            if (!on) return;
+
+            // Two small chevrons stacked on the right, matching the select control.
+            int cx = Width - 12;
+            int cy = Height / 2;
+            using (Pen p = new Pen(Ui.TextMuted, 1.4f))
+            {
+                p.StartCap = LineCap.Round;
+                p.EndCap = LineCap.Round;
+                p.LineJoin = LineJoin.Round;
+                g.DrawLines(p, new PointF[]
+                {
+                    new PointF(cx - 4, cy - 6), new PointF(cx, cy - 10), new PointF(cx + 4, cy - 6)
+                });
+                g.DrawLines(p, new PointF[]
+                {
+                    new PointF(cx - 4, cy + 6), new PointF(cx, cy + 10), new PointF(cx + 4, cy + 6)
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Self-drawn check box. The stock control paints a square system-blue glyph that
+    /// belongs to no theme in particular, so a dialog ends up with two visual languages
+    /// side by side.
+    /// </summary>
+    internal sealed class RhCheck : Control
+    {
+        private bool _checked;
+        private bool _hover;
+        private bool _press;
+
+        public event EventHandler CheckedChanged;
+
+        public RhCheck()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw |
+                     ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Hand;
+            Font = Ui.NewF(9F);
+            Height = 20;
+            TabStop = true;
+        }
+
+        public bool Checked
+        {
+            get { return _checked; }
+            set
+            {
+                if (_checked == value) return;
+                _checked = value;
+                Invalidate();
+                if (CheckedChanged != null) CheckedChanged(this, EventArgs.Empty);
+            }
+        }
+
+        public string Caption
+        {
+            get { return Text; }
+            set { Text = value; Invalidate(); }
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { _hover = false; _press = false; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnMouseDown(MouseEventArgs e) { _press = true; Invalidate(); base.OnMouseDown(e); }
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            bool inside = ClientRectangle.Contains(e.Location);
+            _press = false;
+            if (inside && Enabled) Checked = !_checked;
+            Invalidate();
+            base.OnMouseUp(e);
+        }
+
+        protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
+        protected override void OnTextChanged(EventArgs e) { Invalidate(); base.OnTextChanged(e); }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Space) { Checked = !_checked; e.Handled = true; }
+            base.OnKeyDown(e);
+        }
+
+        protected override bool IsInputKey(Keys keyData)
+        {
+            if (keyData == Keys.Space) return true;
+            return base.IsInputKey(keyData);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            g.Clear(Ui.ResolveBackColor(this));
+
+            const int Box = 14;
+            int cy = (Height - Box) / 2;
+            Rectangle box = new Rectangle(0, cy, Box, Box);
+
+            // Hover and press tint the empty box towards the accent so the control
+            // reacts before the click lands.
+            bool hot = Enabled && (_hover || _press);
+            Ui.DrawCheckGlyph(g, box, _checked, Enabled, hot);
+
+            if (!string.IsNullOrEmpty(Text))
+            {
+                TextRenderer.DrawText(g, Text, Font,
+                    new Rectangle(Box + 7, 0, Math.Max(10, Width - Box - 7), Height),
+                    Enabled ? Ui.Text : Ui.TextMuted,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
             }
         }
     }

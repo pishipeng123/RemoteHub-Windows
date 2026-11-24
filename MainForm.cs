@@ -78,7 +78,9 @@ namespace RemoteHub
         private bool _hoverAdd;         // the "+" button under the cursor
 
         private Panel _statusBar;
-        private Label _lblMsg, _lblInfo;
+        private Label _lblMsg;
+        // The four status counters, drawn as separate panes on the right of the bar.
+        private readonly string[] _statusPanes = new string[4];
         private Color _statusDot;
 
         private Timer _timer;
@@ -134,8 +136,7 @@ namespace RemoteHub
             Ui.ThemeChanged += Ui_ThemeChanged;
             ApplyThemeNow();
             UpdateWelcome();
-            _lblInfo.Text = "在线 0   ·   标签 0   ·   主机 " + _store.Items.Count +
-                            "   ·   可达 0/" + _store.Items.Count;
+            SetStatusPanes(0, 0, _store.Items.Count, 0, _store.Items.Count);
 
             _timer = new Timer { Interval = 1500 };
             _timer.Tick += Timer_Tick;
@@ -255,23 +256,23 @@ namespace RemoteHub
             // Classic icon toolbar: no captions under the icons, the command name
             // shows in the tooltip. Every command is also reachable from the menu bar.
             _tip = new ToolTip { InitialDelay = 450, ReshowDelay = 120, AutoPopDelay = 6000 };
-            AddTool("新建连接", UiIcon.Plus, RhButtonKind.Chip, 26, delegate { NewConnection(); }, false);
-            AddTool("编辑连接", UiIcon.Edit, RhButtonKind.Chip, 26, delegate { EditSelected(); }, false);
-            AddTool("删除连接", UiIcon.Trash, RhButtonKind.Chip, 26, delegate { DeleteSelected(); }, true);
-            AddTool("连接", UiIcon.Play, RhButtonKind.Chip, 26, delegate { ConnectSelected(); }, false);
-            AddTool("断开", UiIcon.Power, RhButtonKind.Chip, 26, delegate { DisconnectCurrent(); }, false);
-            AddTool("重连", UiIcon.Refresh, RhButtonKind.Chip, 26, delegate { ReconnectCurrent(); }, true);
-            AddTool("全屏 (F11)", UiIcon.Expand, RhButtonKind.Chip, 26, delegate { ToggleFullScreen(); }, false);
-            AddTool("文件共享", UiIcon.Folder, RhButtonKind.Chip, 26, delegate { ShowFileTransfer(); }, false);
-            AddTool("会话截图", UiIcon.Monitor, RhButtonKind.Chip, 26, delegate { CaptureSession(); }, false);
-            AddTool("多画面宫格", UiIcon.Grid, RhButtonKind.Chip, 26, delegate { ToggleGrid(); }, false);
+            AddTool("新建连接", UiIcon.Plus, RhButtonKind.Chip, 30, delegate { NewConnection(); }, false);
+            AddTool("编辑连接", UiIcon.Edit, RhButtonKind.Chip, 30, delegate { EditSelected(); }, false);
+            AddTool("删除连接", UiIcon.Trash, RhButtonKind.Chip, 30, delegate { DeleteSelected(); }, true);
+            AddTool("连接", UiIcon.Play, RhButtonKind.Chip, 30, delegate { ConnectSelected(); }, false);
+            AddTool("断开", UiIcon.Power, RhButtonKind.Chip, 30, delegate { DisconnectCurrent(); }, false);
+            AddTool("重连", UiIcon.Refresh, RhButtonKind.Chip, 30, delegate { ReconnectCurrent(); }, true);
+            AddTool("全屏 (F11)", UiIcon.Expand, RhButtonKind.Chip, 30, delegate { ToggleFullScreen(); }, false);
+            AddTool("文件共享", UiIcon.Folder, RhButtonKind.Chip, 30, delegate { ShowFileTransfer(); }, false);
+            AddTool("会话截图", UiIcon.Monitor, RhButtonKind.Chip, 30, delegate { CaptureSession(); }, false);
+            AddTool("多画面宫格", UiIcon.Grid, RhButtonKind.Chip, 30, delegate { ToggleGrid(); }, false);
 
             _badge = new Panel { Size = new Size(74, 26), BackColor = Color.Transparent };
             _badge.Paint += Badge_Paint;
             _badge.Visible = false;          // live counters live in the status bar
             _toolBar.Controls.Add(_badge);
 
-            _btnMore = new RhButton { Text = "", Icon = UiIcon.More, Kind = RhButtonKind.Chip, Size = new Size(26, 26) };
+            _btnMore = new RhButton { Text = "", Icon = UiIcon.More, Kind = RhButtonKind.Chip, Size = new Size(30, 28) };
             _btnMore.Click += delegate { ShowRecentMenu(); };
             _toolBar.Controls.Add(_btnMore);
 
@@ -426,12 +427,16 @@ namespace RemoteHub
 
         private int MenuTitleWidth(int i)
         {
-            return TextRenderer.MeasureText(_menuTitles[i], Ui.F(9F)).Width + 20;
+            // TextRenderer's measurement already contains the internal padding of the
+            // glyph run, so only a small amount is added on top. Adding a generous
+            // constant here is what used to push the menu items far apart.
+            int w = TextRenderer.MeasureText(_menuTitles[i], Ui.F(9F)).Width;
+            return w + 4;
         }
 
         private int MenuTitleStart(int i)
         {
-            int x = 8;
+            int x = 4;
             for (int k = 0; k < i; k++) x += MenuTitleWidth(k);
             return x;
         }
@@ -455,11 +460,16 @@ namespace RemoteHub
             {
                 int s = MenuTitleStart(i);
                 int w = MenuTitleWidth(i);
-                if (i == _menuHover)
+                bool hot = i == _menuHover;
+                if (hot)
                     using (SolidBrush b = new SolidBrush(Ui.AccentSoft))
                         g.FillRectangle(b, s, 0, w, _menuBar.Height);
-                using (SolidBrush t = new SolidBrush(i == _menuHover ? Ui.Accent : Ui.Text))
-                    g.DrawString(_menuTitles[i], Ui.F(9F), t, new PointF(s + 10, 5));
+                // GDI drawing (TextRenderer) matches the measurement used for the hit
+                // areas; GDI+ DrawString measured differently and drifted under DPI scaling.
+                TextRenderer.DrawText(g, _menuTitles[i], Ui.F(9F),
+                    new Rectangle(s + 2, 0, w - 4, _menuBar.Height),
+                    hot ? Ui.Accent : Ui.Text,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
             }
             using (Pen p = new Pen(Ui.Border))
                 g.DrawLine(p, 0, _menuBar.Height - 1, _menuBar.Width, _menuBar.Height - 1);
@@ -740,7 +750,7 @@ namespace RemoteHub
                 BackColor = Ui.SidebarField,
                 ForeColor = Ui.SidebarText,
                 Font = Ui.NewF(9F),
-                Location = new Point(33, 7),
+                Location = new Point(32, 8),
                 Size = new Size(196, 18),
                 Tag = "sidefield"
             };
@@ -899,12 +909,12 @@ namespace RemoteHub
 
         private void BuildStatusBar()
         {
-            _statusBar = new Panel { Dock = DockStyle.Bottom, Height = 30, Tag = "status", BackColor = Ui.StatusBar };
+            _statusBar = new Panel { Dock = DockStyle.Bottom, Height = 28, Tag = "status", BackColor = Ui.StatusBar };
             _statusBar.Paint += StatusBar_Paint;
             _lblMsg = new Label
             {
                 Text = "就绪",
-                Location = new Point(28, 4),
+                Location = new Point(28, 3),
                 Size = new Size(600, 22),
                 Font = Ui.NewF(9F),
                 ForeColor = Ui.Text,
@@ -912,22 +922,9 @@ namespace RemoteHub
                 TextAlign = ContentAlignment.MiddleLeft,
                 Tag = "title"
             };
-            _lblInfo = new Label
-            {
-                Text = "",
-                Location = new Point(600, 4),
-                Size = new Size(400, 22),
-                Font = Ui.NewF(9F),
-                ForeColor = Ui.TextMuted,
-                BackColor = Color.Transparent,
-                TextAlign = ContentAlignment.MiddleRight,
-                Tag = "muted"
-            };
             _statusBar.Controls.Add(_lblMsg);
-            _statusBar.Controls.Add(_lblInfo);
             _statusBar.Resize += delegate
             {
-                _lblInfo.SetBounds(Math.Max(300, _statusBar.Width - 560), 4, 546, 22);
                 _lblMsg.Width = Math.Max(150, _statusBar.Width - 590);
             };
             _statusDot = Ui.TextMuted;
@@ -942,8 +939,10 @@ namespace RemoteHub
             _btnClose.Location = new Point(w - _btnClose.Width, 0);
             _btnMax.Location = new Point(_btnClose.Left - _btnMax.Width, 0);
             _btnMin.Location = new Point(_btnMax.Left - _btnMin.Width, 0);
-            _btnHelp.Location = new Point(_btnMin.Left - 42, 6);
-            _btnTheme.Location = new Point(_btnHelp.Left - 33, 6);
+            // The theme and help buttons sit directly next to the window buttons with
+            // a single separator between the two groups.
+            _btnHelp.Location = new Point(_btnMin.Left - _btnHelp.Width - 8, 6);
+            _btnTheme.Location = new Point(_btnHelp.Left - _btnTheme.Width, 6);
             _header.Invalidate();
             LayoutToolbar();
         }
@@ -951,18 +950,18 @@ namespace RemoteHub
         private void LayoutToolbar()
         {
             if (_toolBar == null) return;
-            int x = 8;
+            int x = 6;
             _seps.Clear();
             for (int i = 0; i < _toolButtons.Count; i++)
             {
                 RhButton b = _toolButtons[i];
-                b.Location = new Point(x, 3);
-                x += b.Width + 2;
-                if (_sepFlags[i]) { _seps.Add(x + 5); x += 14; }
+                b.Location = new Point(x, 2);
+                x += b.Width;
+                if (_sepFlags[i]) { _seps.Add(x + 6); x += 16; }
             }
             // Right cluster: overflow menu, then the quick-connect field.
-            int right = _toolBar.Width - 8;
-            _btnMore.Location = new Point(right - _btnMore.Width, 3);
+            int right = _toolBar.Width - 6;
+            _btnMore.Location = new Point(right - _btnMore.Width, 2);
             _btnMore.Visible = _btnMore.Left > x + 4;
             if (_quickWrap != null)
             {
@@ -979,7 +978,7 @@ namespace RemoteHub
             if (_searchWrap != null && _searchBox != null)
             {
                 _searchBox.SetBounds(11, 10, Math.Max(80, _searchWrap.Width - 22), 32);
-                _search.SetBounds(33, 7, Math.Max(40, _searchBox.Width - 44), 18);
+                _search.SetBounds(32, 8, Math.Max(40, _searchBox.Width - 43), 18);
                 Ui.RoundRegion(_searchBox, Ui.Radius);
             }
             if (_sideFoot != null && _btnSideImport != null)
@@ -1002,12 +1001,23 @@ namespace RemoteHub
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             using (SolidBrush bg = new SolidBrush(Ui.TopBar)) g.FillRectangle(bg, _header.ClientRectangle);
 
-            Rectangle mark = new Rectangle(13, 10, 22, 22);
-            using (SolidBrush b = new SolidBrush(Ui.Accent)) Ui.FillRound(g, b, mark, 3);
-            Ui.DrawIcon(g, UiIcon.Logo, new Rectangle(mark.X + 4, mark.Y + 4, 14, 14), Color.White);
+            // One tile only. The glyph is drawn separately so the mark does not end up
+            // as a coloured square inside a coloured square.
+            Rectangle mark = new Rectangle(14, 11, 20, 20);
+            using (SolidBrush b = new SolidBrush(Ui.Accent)) Ui.FillRound(g, b, mark, Ui.Radius);
+            Ui.DrawLogoMark(g, new Rectangle(mark.X + 2, mark.Y + 2, 16, 16), Color.White);
 
-            using (SolidBrush tb = new SolidBrush(Ui.Text))
-                g.DrawString("RemoteHub", Ui.F(10F, FontStyle.Bold), tb, new PointF(44, 11));
+            Rectangle textArea = new Rectangle(mark.Right + 10, 0, 200, _header.Height);
+            TextRenderer.DrawText(g, "RemoteHub", Ui.F(9.5F, FontStyle.Bold), textArea,
+                Ui.Text, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+
+            // Hairline separating the app commands from the window controls.
+            if (_btnMin != null)
+            {
+                int sepX = _btnTheme.Left - 12;
+                using (Pen sep = new Pen(Ui.BorderSoft))
+                    g.DrawLine(sep, sepX, 12, sepX, _header.Height - 13);
+            }
 
             using (Pen p = new Pen(Ui.Border)) g.DrawLine(p, 0, _header.Height - 1, _header.Width, _header.Height - 1);
         }
@@ -1018,7 +1028,7 @@ namespace RemoteHub
             using (SolidBrush bg = new SolidBrush(Ui.CardAlt)) g.FillRectangle(bg, _toolBar.ClientRectangle);
             using (Pen p = new Pen(Ui.Border))
             {
-                foreach (int sx in _seps) g.DrawLine(p, sx, 7, sx, _toolBar.Height - 7);
+                foreach (int sx in _seps) g.DrawLine(p, sx, 8, sx, _toolBar.Height - 9);
                 g.DrawLine(p, 0, _toolBar.Height - 1, _toolBar.Width, _toolBar.Height - 1);
             }
         }
@@ -1042,7 +1052,7 @@ namespace RemoteHub
             Rectangle r = new Rectangle(0, 0, _searchBox.Width - 1, _searchBox.Height - 1);
             using (SolidBrush b = new SolidBrush(Ui.SidebarField)) Ui.FillRound(g, b, r, Ui.Radius);
             using (Pen p = new Pen(Ui.SidebarBorder)) Ui.DrawRound(g, p, r, Ui.Radius);
-            Ui.DrawIcon(g, UiIcon.Search, new Rectangle(9, 9, 14, 14), Ui.SidebarMuted);
+            Ui.DrawIcon(g, UiIcon.Search, new Rectangle(8, 9, 15, 15), Ui.SidebarMuted);
         }
 
         private void QuickWrap_Paint(object sender, PaintEventArgs e)
@@ -1064,7 +1074,34 @@ namespace RemoteHub
             Graphics g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using (Pen p = new Pen(Ui.Border)) g.DrawLine(p, 0, 0, _statusBar.Width, 0);
-            using (SolidBrush d = new SolidBrush(_statusDot)) g.FillEllipse(d, 13, 11, 8, 8);
+            using (SolidBrush d = new SolidBrush(_statusDot)) g.FillEllipse(d, 12, 10, 8, 8);
+
+            // The four counters are drawn as separate panes at the right hand end.
+            // A single string joined by dots reads like a dashboard summary; discrete
+            // panes with hairline dividers read like a desktop tool.
+            int count = _statusPanes.Length;
+            if (count == 0) return;
+
+            int[] widths = new int[count];
+            int total = 0;
+            for (int i = 0; i < count; i++)
+            {
+                widths[i] = TextRenderer.MeasureText(_statusPanes[i], Ui.F(9F)).Width + 22;
+                total += widths[i];
+            }
+            int x = _statusBar.Width - 12 - total;
+            if (x < 200) return;
+
+            for (int i = 0; i < count; i++)
+            {
+                if (i > 0)
+                    using (Pen sep = new Pen(Ui.Border))
+                        g.DrawLine(sep, x, 6, x, _statusBar.Height - 7);
+                Rectangle pane = new Rectangle(x, 0, widths[i], _statusBar.Height);
+                TextRenderer.DrawText(g, _statusPanes[i], Ui.F(9F), pane, Ui.TextMuted,
+                    TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+                x += widths[i];
+            }
         }
 
         private void Tree_DrawNode(object sender, DrawTreeNodeEventArgs e)
@@ -1108,51 +1145,72 @@ namespace RemoteHub
                 int cut = name.LastIndexOf("   (");
                 if (cut > 0) name = name.Substring(0, cut);
 
-                using (SolidBrush nb = new SolidBrush(selected ? Ui.SidebarActiveText : Ui.SidebarText))
-                    g.DrawString(name, Ui.F(9F, FontStyle.Bold), nb, new PointF(indent + 14, midY - 9));
+                TextRenderer.DrawText(g, name, Ui.F(9F, FontStyle.Bold),
+                    new Rectangle(indent + 14, row.Top, 300, rowH),
+                    selected ? Ui.SidebarActiveText : Ui.SidebarText,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
 
+                // The count sits behind the group name as plain muted text. A filled
+                // chip next to the label reads as a badge from a web dashboard.
                 string cnt = e.Node.Nodes.Count.ToString();
-                float nameW = g.MeasureString(name, Ui.F(9F, FontStyle.Bold)).Width;
-                float cntW = g.MeasureString(cnt, Ui.F(8F)).Width;
-                Rectangle cr = new Rectangle((int)(indent + 16 + nameW), midY - 8, (int)cntW + 11, 16);
-                using (SolidBrush cb = new SolidBrush(Ui.SidebarHover)) Ui.FillRound(g, cb, cr, Ui.Radius);
-                using (SolidBrush ct = new SolidBrush(Ui.SidebarMuted))
-                    g.DrawString(cnt, Ui.F(8F), ct, new PointF(cr.Left + 5, cr.Top + 1));
+                int nameW = TextRenderer.MeasureText(name, Ui.F(9F, FontStyle.Bold)).Width;
+                TextRenderer.DrawText(g, cnt, Ui.F(8.5F),
+                    new Rectangle(indent + 16 + nameW, row.Top, 40, rowH),
+                    Ui.SidebarMuted,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
                 return;
             }
 
             // Hosts sit one level in and hang from a hairline rail that starts
             // under the group header, so a host reads as part of that group.
-            int dotX = e.Node.Level > 0 ? 25 : pill.Left + (selected ? 15 : 11);
+            const int RailX = 31;           // the rail the host hangs from
+            const int DotX = 39;            // the status dot
+            int textX = DotX + 12;
+
             ProbeState live = ProbeStateOf(c);
             Color dotColor = live == ProbeState.Online ? Ui.Success
                 : live == ProbeState.Reachable ? Ui.Warning
                 : live == ProbeState.Checking ? Ui.TextMuted
                 : Ui.SidebarOffline;
 
+            // Two text lines: name on top, address underneath.
+            int nameTop = row.Top + 6;
+            int nameH = 18;
+            int nameMid = nameTop + nameH / 2;
+
             if (e.Node.Level > 0 && e.Node.Parent != null)
             {
-                int railX = dotX + 3;
-                int railBottom = e.Node.Index == e.Node.Parent.Nodes.Count - 1 ? midY : row.Bottom;
+                // The rail starts at the vertical middle of the group header and runs
+                // down to the last host, so the nesting is visible instead of implied.
+                // The group row sits one row height above this one, and the label is
+                // centred in that row, so the start can be derived without asking the
+                // TreeView for the parent's rectangle.
+                int railTop = row.Top - rowH / 2;
+                int railBottom = (e.Node.Index == e.Node.Parent.Nodes.Count - 1)
+                    ? nameMid : row.Bottom;
                 using (SolidBrush rb = new SolidBrush(Ui.Border))
-                    g.FillRectangle(rb, railX, row.Top, 1, Math.Max(1, railBottom - row.Top));
+                    g.FillRectangle(rb, RailX, railTop, 1, Math.Max(1, railBottom - railTop));
+                // Short stub joining the rail to the status dot.
+                using (SolidBrush rb = new SolidBrush(Ui.Border))
+                    g.FillRectangle(rb, RailX, nameMid, DotX - RailX, 1);
             }
 
-            using (SolidBrush db = new SolidBrush(dotColor)) g.FillEllipse(db, dotX, midY - 3, 6, 6);
+            using (SolidBrush db = new SolidBrush(dotColor)) g.FillEllipse(db, DotX, nameMid - 3, 6, 6);
 
-            int textX = dotX + 14;
-            int textW = Math.Max(20, row.Right - textX - 14);
-            using (StringFormat sf = new StringFormat())
-            {
-                sf.Trimming = StringTrimming.EllipsisCharacter;
-                sf.FormatFlags = StringFormatFlags.NoWrap;
-                using (SolidBrush nb = new SolidBrush(selected ? Ui.SidebarText : Ui.SidebarText))
-                    g.DrawString(c.Name, Ui.F(9F), nb,
-                        new RectangleF(textX, row.Top + 5, textW, 18), sf);
-                string sub = c.Address + (string.IsNullOrEmpty(c.UserName) ? "" : " · " + c.UserName);
-                using (SolidBrush ab = new SolidBrush(Ui.SidebarMuted))
-                    g.DrawString(sub, Ui.F(8F), ab, new RectangleF(textX, row.Top + 23, textW, 16), sf);
-            }
+            int textW = Math.Max(20, row.Right - textX - 12);
+            TextRenderer.DrawText(g, c.Name, Ui.F(9F),
+                new Rectangle(textX, nameTop, textW, nameH),
+                Ui.SidebarText,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
+
+            string sub = c.Address + (string.IsNullOrEmpty(c.UserName) ? "" : " · " + c.UserName);
+            TextRenderer.DrawText(g, sub, Ui.F(8.5F),
+                new Rectangle(textX, nameTop + nameH + 2, textW, 15),
+                Ui.SidebarMuted,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
         }
 
         /// <summary>
@@ -1183,9 +1241,8 @@ namespace RemoteHub
         {
             if (_tabs == null) return;
             int maxW = 0;
-            using (Graphics g = _tabs.CreateGraphics())
-                foreach (TabPage p in _tabs.TabPages)
-                    maxW = Math.Max(maxW, (int)Math.Ceiling(g.MeasureString(p.Text, Ui.F(9F, FontStyle.Bold)).Width));
+            foreach (TabPage p in _tabs.TabPages)
+                maxW = Math.Max(maxW, TextRenderer.MeasureText(p.Text, Ui.F(9F, FontStyle.Bold)).Width);
             int w = Math.Max(126, Math.Min(236, maxW + 88));
             if (_tabs.ItemSize.Width != w || _tabs.ItemSize.Height != 40)
             {
@@ -1286,8 +1343,8 @@ namespace RemoteHub
             // balanced instead of hugging the left edge with a hole before the "×".
             string title = page.Text;
             Font titleFont = Ui.F(9F, active ? FontStyle.Bold : FontStyle.Regular);
-            float titleW = g.MeasureString(title, titleFont).Width;
-            int groupW = (int)Math.Ceiling(titleW) + 12;
+            int titleW = TextRenderer.MeasureText(title, titleFont).Width;
+            int groupW = titleW + 12;
             int room = chip.Width - 12 - 24;
             int gx = chip.Left + 12 + Math.Max(0, (room - groupW) / 2);
 
@@ -1295,16 +1352,11 @@ namespace RemoteHub
                 g.FillEllipse(db, gx, chip.Top + chip.Height / 2 - 3, 6, 6);
 
             int textLeft = gx + 12;
-            using (SolidBrush tb = new SolidBrush(active ? Ui.Accent : (bodyHot ? Ui.Text : Ui.TextMuted)))
-            using (StringFormat sf = new StringFormat())
-            {
-                sf.Alignment = StringAlignment.Near;
-                sf.LineAlignment = StringAlignment.Center;
-                sf.Trimming = StringTrimming.EllipsisCharacter;
-                sf.FormatFlags = StringFormatFlags.NoWrap;
-                g.DrawString(title, titleFont, tb,
-                    new RectangleF(textLeft, chip.Top, Math.Max(10, chip.Right - 24 - textLeft), chip.Height), sf);
-            }
+            TextRenderer.DrawText(g, title, titleFont,
+                new Rectangle(textLeft, chip.Top, Math.Max(10, chip.Right - 24 - textLeft), chip.Height),
+                active ? Ui.Accent : (bodyHot ? Ui.Text : Ui.TextMuted),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
 
             if (showClose)
                 Ui.DrawIcon(g, UiIcon.Close,
@@ -1363,8 +1415,9 @@ namespace RemoteHub
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             int cx = _welcome.Width / 2;
             int top = _welcomeTop;
-            Ui.DrawCentered(g, "双击左侧主机即可连接", Ui.F(9F), Ui.TextMuted,
-                new Rectangle(cx - 300, top, 600, 22));
+            TextRenderer.DrawText(g, "双击左侧主机即可连接", Ui.F(9F),
+                new Rectangle(cx - 300, top, 600, 22), Ui.TextMuted,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
         }
 
         private List<SessionRecord> RecentRows(int count)
@@ -2014,9 +2067,7 @@ namespace RemoteHub
                     if (st == ProbeState.Online) reachable++;
             _probeOnline = reachable;
             _statusDot = online > 0 ? Ui.Success : Ui.TextMuted;
-            _lblInfo.Text = "在线 " + online + "   ·   标签 " + _sessions.Count +
-                            "   ·   主机 " + _store.Items.Count + "   ·   可达 " +
-                            reachable + "/" + _store.Items.Count;
+            SetStatusPanes(online, _sessions.Count, _store.Items.Count, reachable, _store.Items.Count);
             _badge.Invalidate();
             _statusBar.Invalidate();
             InvalidateStrip();
@@ -2052,6 +2103,15 @@ namespace RemoteHub
         private void SetStatus(string message)
         {
             _lblMsg.Text = message;
+        }
+
+        /// <summary>Refreshes the four counter panes on the right of the status bar.</summary>
+        private void SetStatusPanes(int online, int tabs, int hosts, int reachable, int total)
+        {
+            _statusPanes[0] = "在线 " + online;
+            _statusPanes[1] = "标签 " + tabs;
+            _statusPanes[2] = "主机 " + hosts;
+            _statusPanes[3] = "可达 " + reachable + "/" + total;
         }
 
         /// <summary>Sends Ctrl+Alt+Del into the current remote session (secure attention sequence).</summary>
