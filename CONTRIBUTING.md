@@ -16,8 +16,20 @@ build.bat anycpu
 ```bat
 build.bat anycpu          :: 必须零错误、零警告地通过
 RemoteHub.exe --selftest  :: 生成 selftest.log，确认各项功能自检通过
+RemoteHub.exe --layouttest :: 生成 layouttest.log，确认标题栏按钮在各种窗口宽度下都贴住右缘
 RemoteHub.exe --smoke     :: 生成 smoke.log，确认连接链路自检通过
 ```
+
+`--layouttest` 会真的把窗口拉过 1040 / 1280 / 1600 / 1920 / 1100 几个宽度，再最大化和还原，
+逐个断言关闭键的右缘等于标题栏宽度。改了标题栏、菜单栏或窗口边框之后必须跑一遍。
+
+预览用的截图参数（不会碰 `%APPDATA%` 里的真实台账）：
+
+| 参数 | 作用 |
+| --- | --- |
+| `--shot=<png>` | 截主窗口 |
+| `--shotw=<像素>` | 配合 `--shot`，窗口显示后再改成指定宽度，模拟用户拖动边缘 |
+| `--shotdialog=` `--shotopen=` `--shotgrid=` `--shotlock=` `--shotscan=` `--shottransfer=` `--shothistory=` | 截各类对话框与视图 |
 
 ## 代码约定
 

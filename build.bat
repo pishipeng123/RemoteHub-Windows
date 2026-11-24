@@ -30,9 +30,14 @@ if not exist "RemoteHub.ico" (
 set "PLATFORM=anycpu"
 if /i "%~1"=="x86" set "PLATFORM=x86"
 
+rem Read the version straight out of AssemblyInfo.cs so the banner can never
+rem drift away from what actually got compiled.
+set "APPVER=unknown"
+for /f "tokens=2 delims=()" %%v in ('findstr /c:"AssemblyFileVersion" AssemblyInfo.cs') do set "APPVER=%%~v"
+
 echo Compiler : %CSC%
 echo Platform : %PLATFORM%
-echo Building RemoteHub 1.4.0 ...
+echo Building RemoteHub %APPVER% ...
 
 "%CSC%" /nologo /target:winexe /platform:%PLATFORM% /optimize+ /codepage:65001 ^
   /win32manifest:app.manifest /win32icon:RemoteHub.ico ^
@@ -50,6 +55,6 @@ if errorlevel 1 (
 
 echo.
 echo [OK] Built: %~dp0RemoteHub.exe
-echo      Version 1.4.0.0 with icon + manifest embedded.
+echo      Version %APPVER% with icon + manifest embedded.
 echo      Double-click it, or run:  RemoteHub.exe --selftest
 if /i not "%~2"=="silent" pause

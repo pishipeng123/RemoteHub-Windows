@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 echo ============================================
-echo   RemoteHub 1.4.0  Release Builder
+echo   RemoteHub 1.4.1  Release Builder
 echo ============================================
 echo.
 
@@ -23,10 +23,10 @@ copy /y "UserGuide.txt" "dist\Portable\RemoteHub\" >nul
 >  "dist\Portable\RemoteHub\portable.flag" echo RemoteHub Portable Edition
 >> "dist\Portable\RemoteHub\portable.flag" echo Connections are stored in .\Data\connections.xml
 >> "dist\Portable\RemoteHub\portable.flag" echo Delete this file to switch to the installed-mode config path.
-if exist "dist\RemoteHub-1.4.0-Portable.zip" del /f /q "dist\RemoteHub-1.4.0-Portable.zip"
-powershell -NoProfile -Command "Compress-Archive -Path 'dist\Portable\RemoteHub' -DestinationPath 'dist\RemoteHub-1.4.0-Portable.zip' -Force"
+if exist "dist\RemoteHub-1.4.1-Portable.zip" del /f /q "dist\RemoteHub-1.4.1-Portable.zip"
+powershell -NoProfile -Command "Compress-Archive -Path 'dist\Portable\RemoteHub' -DestinationPath 'dist\RemoteHub-1.4.1-Portable.zip' -Force"
 if errorlevel 1 goto :fail
-echo       OK: dist\RemoteHub-1.4.0-Portable.zip
+echo       OK: dist\RemoteHub-1.4.1-Portable.zip
 
 rem --- 2) installer -------------------------------------------------------
 echo.
@@ -41,7 +41,7 @@ if not exist "%ISCC%" (
 )
 "%ISCC%" "RemoteHub.iss"
 if errorlevel 1 goto :fail
-echo       OK: dist\RemoteHub-1.4.0-Setup.exe
+echo       OK: dist\RemoteHub-1.4.1-Setup.exe
 
 :done
 echo.

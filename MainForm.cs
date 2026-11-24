@@ -240,6 +240,12 @@ namespace RemoteHub
 
             _header.Controls.AddRange(new Control[] { _btnTheme, _btnHelp, _btnMin, _btnMax, _btnClose });
 
+            // The caption buttons are placed by hand, so the header has to re-lay them
+            // out every time the window width changes. Without this the buttons stay
+            // where they were when the window first opened: they drift away from the
+            // right edge as the window grows and get clipped once it shrinks.
+            _header.Resize += delegate { LayoutHeader(); };
+
             // The four-level top area (brand strip + menu bar + toolbar) is folded into a
             // painted title bar plus one command bar; every menu command lives in _moreMenu.
 

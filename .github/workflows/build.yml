@@ -34,6 +34,16 @@ jobs:
           if errorlevel 1 exit /b 1
           type selftest.log
 
+      # 标题栏按钮是手工定位的，窗口宽度一变就必须重新贴边。
+      # 这个自检会把窗口实际拉过几个宽度，逐个断言关闭键仍紧贴右缘。
+      - name: Caption button layout test
+        shell: cmd
+        timeout-minutes: 3
+        run: |
+          RemoteHub.exe --layouttest
+          if errorlevel 1 exit /b 1
+          type layouttest.log
+
       # 连接链路自检会真正驱动 RDP 控件，需要系统装了「远程桌面客户端」。
       # runner 上不一定有，所以先尽力启用；启用不了就跳过这一项，不阻塞构建。
       - name: Enable Remote Desktop client
@@ -76,6 +86,13 @@ jobs:
         with:
           name: selftest-log
           path: selftest.log
+
+      - name: Upload layout test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layouttest-log
+          path: layouttest.log
 
   release:
     name: Build installer

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -35,6 +37,7 @@ namespace RemoteHub
 
             bool selfTest = false;
             bool smoke = false;
+            bool layoutTest = false;
             string shotPath = null;
             bool shotDialog = false;
             bool shotOpen = false;
@@ -43,6 +46,7 @@ namespace RemoteHub
             bool shotScan = false;
             bool shotLock = false;
             bool shotGrid = false;
+            int shotWidth = 0;
             if (args != null)
             {
                 foreach (string a in args)
@@ -50,9 +54,17 @@ namespace RemoteHub
                     if (string.Equals(a, "--selftest", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(a, "/selftest", StringComparison.OrdinalIgnoreCase))
                         selfTest = true;
+                    if (string.Equals(a, "--layouttest", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(a, "/layouttest", StringComparison.OrdinalIgnoreCase))
+                        layoutTest = true;
                     if (string.Equals(a, "--smoke", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(a, "/smoke", StringComparison.OrdinalIgnoreCase))
                         smoke = true;
+                    if (a.StartsWith("--shotw=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int tmp;
+                        if (int.TryParse(a.Substring(8), out tmp) && tmp > 400) shotWidth = tmp;
+                    }
                     if (a.StartsWith("--shotscan=", StringComparison.OrdinalIgnoreCase))
                     {
                         shotPath = a.Substring(11);
@@ -112,7 +124,7 @@ namespace RemoteHub
             }
 
             // Preview / test modes must never show the vault lock on startup.
-            if (selfTest || smoke || shotPath != null)
+            if (selfTest || smoke || layoutTest || shotPath != null)
                 Environment.SetEnvironmentVariable("RH_PREVIEW", "1");
 
             if (selfTest)
@@ -132,6 +144,14 @@ namespace RemoteHub
                 return;
             }
 
+            if (layoutTest)
+            {
+                int rc = 1;
+                try { rc = RunLayoutTest(); }
+                catch (Exception ex) { Program.Log("LAYOUT-FATAL", ex); }
+                Environment.Exit(rc);
+            }
+
             if (shotPath != null)
             {
                 try
@@ -140,7 +160,7 @@ namespace RemoteHub
                     else if (shotLock || shotGrid) RunMainShot(shotPath, shotGrid);
                     else if (shotTransfer) RunTransferShot(shotPath);
                     else if (shotHistory) RunHistoryShot(shotPath);
-                    else RunScreenshot(shotPath, shotDialog, shotOpen);
+                    else RunScreenshot(shotPath, shotDialog, shotOpen, shotWidth);
                 }
                 catch (Exception ex) { Log("SHOT", ex); }
                 return;
@@ -150,10 +170,122 @@ namespace RemoteHub
         }
 
         /// <summary>
+        /// Layout regression check: the caption buttons (close / maximize / minimize) are
+        /// placed by hand, so they have to re-anchor whenever the window width changes.
+        /// This walks the real window through several widths - growing, shrinking and
+        /// shrinking back - and checks that they stay glued to the right edge.
+        /// Returns 0 when every width passes, 1 otherwise.
+        /// </summary>
+        private static int RunLayoutTest()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("RemoteHub 标题栏布局自检  " + DateTime.Now.ToString("s"));
+            sb.AppendLine();
+
+            int[] widths = { 1040, 1280, 1600, 1920, 1100, 1040 };
+            int failures = 0;
+            int checks = 0;
+            StringBuilder detail = new StringBuilder();
+
+            MainForm form = new MainForm();
+            form.Shown += delegate
+            {
+                object header = GetField(form, "_header");
+                object close = GetField(form, "_btnClose");
+                object max = GetField(form, "_btnMax");
+                object min = GetField(form, "_btnMin");
+                if (header == null || close == null || max == null || min == null)
+                {
+                    detail.AppendLine("  [FAIL] 无法读取标题栏控件");
+                    failures++;
+                }
+                else
+                {
+                    // (label, header width, close-button right edge, minimize right edge)
+                    Action<string, int> check = delegate(string label, int expect)
+                    {
+                        form.PerformLayout();
+                        Application.DoEvents();
+                        form.PerformLayout();
+
+                        int hw = GetInt(header, "Width");
+                        int cRight = GetInt(close, "Left") + GetInt(close, "Width");
+                        int mRight = GetInt(max, "Left") + GetInt(max, "Width");
+                        int nRight = GetInt(min, "Left") + GetInt(min, "Width");
+
+                        bool flush = cRight == hw;
+                        bool chained = mRight == GetInt(close, "Left") && nRight == GetInt(max, "Left");
+                        bool onScreen = GetInt(close, "Left") >= 0 && cRight <= hw;
+                        checks++;
+
+                        string mark = (flush && chained && onScreen) ? "OK  " : "FAIL";
+                        if (!(flush && chained && onScreen)) failures++;
+
+                        detail.AppendLine(string.Format("  [{0}] {1,-22} 标题栏宽 {2,4}  关闭键右缘 {3,4}  差 {4,4}  {5}",
+                            mark, label, hw, cRight, hw - cRight,
+                            (flush && chained && onScreen) ? "贴住右缘" : "错位"));
+                    };
+
+                    foreach (int w in widths)
+                    {
+                        form.Size = new Size(w, 800);
+                        check("宽度 " + w, w);
+                    }
+
+                    // Maximising switches the frame padding off, which changes the header
+                    // width by a couple of pixels; restoring must not leave the buttons
+                    // stranded at the old position either.
+                    try
+                    {
+                        form.WindowState = FormWindowState.Maximized;
+                        Application.DoEvents();
+                        check("最大化", 0);
+                        form.WindowState = FormWindowState.Normal;
+                        Application.DoEvents();
+                        check("还原", 0);
+                    }
+                    catch (Exception ex)
+                    {
+                        detail.AppendLine("  [SKIP] 最大化检查跳过: " + ex.Message);
+                    }
+                }
+                form.Close();
+            };
+
+            Application.Run(form);
+
+            sb.Append(detail);
+            sb.AppendLine();
+            sb.AppendLine("失败项 : " + failures + " / " + checks);
+            sb.AppendLine(failures == 0 ? "结果   : 全部通过" : "结果   : 存在错位");
+
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "layouttest.log");
+            try { File.WriteAllText(path, sb.ToString(), Encoding.UTF8); } catch { }
+            Console.Write(sb.ToString());
+            return failures == 0 ? 0 : 1;
+        }
+
+        private static object GetField(object target, string name)
+        {
+            FieldInfo fi = target.GetType().GetField(name,
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            return fi == null ? null : fi.GetValue(target);
+        }
+
+        private static int GetInt(object target, string property)
+        {
+            PropertyInfo pi = target.GetType().GetProperty(property,
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            if (pi == null) return -1;
+            object v = pi.GetValue(target, null);
+            return v is int ? (int)v : -1;
+        }
+
+        /// <summary>
         /// Hidden preview mode: open the real UI, optionally a dialog, capture the window
         /// to a PNG and exit. Used to verify the visual design on the target machine.
         /// </summary>
-        private static void RunScreenshot(string path, bool withDialog, bool openFirst)
+        private static void RunScreenshot(string path, bool withDialog, bool openFirst, int width)
         {
             string full = Path.IsPathRooted(path)
                 ? path
@@ -191,8 +323,25 @@ namespace RemoteHub
                     {
                         Interval = openFirst ? 3400 : 1100
                     };
-                    t.Tick += delegate { t.Stop(); CaptureWindow(full, f); f.Close(); };
+                    t.Tick += delegate
+                    {
+                        t.Stop();
+                        CaptureWindow(full, f);
+                        f.Close();
+                    };
                     t.Start();
+                    // Resize after the window is already up, so the caption buttons have
+                    // to re-anchor the way they do while the user drags the window edge.
+                    if (width > 0)
+                    {
+                        System.Windows.Forms.Timer rt = new System.Windows.Forms.Timer { Interval = 500 };
+                        rt.Tick += delegate
+                        {
+                            rt.Stop();
+                            f.Size = new Size(width, f.Size.Height);
+                        };
+                        rt.Start();
+                    }
                 };
                 Application.Run(f);
             }
